@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<section class="page-stack">
+    <header class="page-header-card">
+        <div class="section-heading">
+            <p class="section-kicker">Métricas de uso</p>
+            <h2 class="section-title">Volume de envio, sucesso, canais e execuções paralelas.</h2>
+            <p class="section-copy">Leitura gráfica das execuções recentes usando apenas os intervalos operacionais de 24h, 7d e 30d.</p>
+        </div>
+
+        <form method="get" class="filter-bar">
+            <button type="submit" name="days" value="1" class="filter-chip {% if days == 1 %}active{% endif %}">24h</button>
+            <button type="submit" name="days" value="7" class="filter-chip {% if days == 7 %}active{% endif %}">7d</button>
+            <button type="submit" name="days" value="30" class="filter-chip {% if days == 30 %}active{% endif %}">30d</button>
+        </form>
+    </header>
+
+    <section class="cards-grid metrics-grid-4">
+        <article class="metric-card grafana-card">
+            <span class="metric-label">Relatórios enviados 24h</span>
+            <strong>{{ status_data.window_metrics.sent_last_24h }}</strong>
+            <p>{{ status_data.window_metrics.sent_last_7d }} nos últimos 7 dias.</p>
+        </article>
+        <article class="metric-card grafana-card">
+            <span class="metric-label">Relatórios enviados 30d</span>
+            <strong>{{ status_data.window_metrics.sent_last_30d }}</strong>
+            <p>Retenção operacional total do painel.</p>
+        </article>
+        <article class="metric-card grafana-card">
+            <span class="metric-label">Sucesso</span>
+            <strong>{{ "%.1f"|format(status_data.status_metrics.success_rate) }}%</strong>
+            <p>{{ status_data.status_metrics.success_count }} execução(ões) concluídas.</p>
+        </article>
+        <article class="metric-card grafana-card">
+            <span class="metric-label">Falha</span>
+            <strong>{{ "%.1f"|format(status_data.status_metrics.failure_rate) }}%</strong>
+            <p>{{ status_data.status_metrics.failure_count }} falha(s) registradas.</p>
+        </article>
+        <article class="metric-card grafana-card">
+            <span class="metric-label">Tempo médio</span>
+            <strong>{{ "%.1f"|format(status_data.duration_metrics.average_seconds) }}s</strong>
+            <p>Tempo médio entre o início do processo e a conclusão do envio.</p>
+        </article>
+        <article class="metric-card grafana-card">
+            <span class="metric-label">Pico de execuções paralelas</span>
+            <strong>{{ status_data.duration_metrics.worker_peak }}</strong>
+            <p>Maior quantidade de relatórios processados ao mesmo tempo no intervalo.</p>
+        </article>
+    </section>
+
+    <section class="analytics-grid analytics-grid-pies">
+        <article class="grafana-card chart-panel chart-panel-compact">
+            <div class="panel-header">
+                <div>
+                    <p class="section-kicker">Distribuição</p>
+                    <h3 class="panel-title">Status das execuções</h3>
+                </div>
+            </div>
+            <div class="chart-area chart-area-sm">
+                <canvas id="dashboardStatusPie"></canvas>
+            </div>
+        </article>
+
+        <article class="grafana-card chart-panel chart-panel-compact">
+            <div class="panel-header">
+                <div>
+                    <p class="section-kicker">Canais</p>
+                    <h3 class="panel-title">Entrega por canal</h3>
+                </div>
+            </div>
+            <div class="chart-area chart-area-sm">
+                <canvas id="dashboardDeliveryPie"></canvas>
+            </div>
+            <div class="legend-list">
+                <span><i class="legend-swatch blue"></i>E-mail {{ "%.1f"|format(status_data.delivery_metrics.email_percentage) }}%</span>
+                <span><i class="legend-swatch orange"></i>Telegram {{ "%.1f"|format(status_data.delivery_metrics.telegram_percentage) }}%</span>
+            </div>
+        </article>
+    </section>
+
+    <section class="analytics-grid">
+        <article class="grafana-card chart-panel chart-panel-full">
+            <div class="panel-header">
+                <div>
+                    <p class="section-kicker">Time Series</p>
+                    <h3 class="panel-title">Envios x falhas {% if days == 1 %}por hora{% else %}por dia{% endif %}</h3>
+                </div>
+                <span class="panel-meta">Janela: {% if days == 1 %}24h{% elif days == 7 %}7d{% else %}30d{% endif %}</span>
+            </div>
+            <div class="chart-area chart-area-lg">
+                <canvas id="dashboardTimeseries"></canvas>
+            </div>
+        </article>
+
+        <article class="grafana-card chart-panel chart-panel-full">
+            <div class="panel-header">
+                <div>
+                    <p class="section-kicker">Execução paralela</p>
+                    <h3 class="panel-title">Relatórios simultâneos em execução</h3>
+                </div>
+                <span class="panel-meta">Janela: {% if days == 1 %}24h{% elif days == 7 %}7d{% else %}30d{% endif %}</span>
+            </div>
+            <div class="chart-area chart-area-md">
+                <canvas id="dashboardWorkersTimeseries"></canvas>
+            </div>
+        </article>
+    </section>
+
+    <section class="grafana-card table-panel">
+        <div class="panel-header">
+            <div>
+                <p class="section-kicker">Performance</p>
+                <h3 class="panel-title">Relatórios mais lentos</h3>
+            </div>
+            <span class="panel-meta">Top 10</span>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Relatório</th>
+                        <th>Tempo de execução</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in status_data.slowest_reports %}
+                    <tr>
+                        <td class="report-name-cell">{{ item.schedule_title }}</td>
+                        <td>{{ item.duration_label }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="2">Nenhuma execução com tempo registrado no intervalo.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    const dashboardSeries = {{ status_data.timeseries_counts | tojson }};
+    const failureSeries = {{ status_data.timeseries_failure_counts | tojson }};
+    const workerUsageSeries = {{ status_data.worker_usage_timeseries | tojson }};
+    const timeseriesUnit = {{ status_data.timeseries_unit | tojson }};
+    const statusMetrics = {{ status_data.status_metrics | tojson }};
+    const deliveryMetrics = {{ status_data.delivery_metrics | tojson }};
+
+    function computedTheme() {
+        return {
+            text: "#d8d9da",
+            muted: "#9aa1a9",
+            grid: "rgba(154, 161, 169, 0.14)",
+            panel: "#16171d",
+        };
+    }
+
+    function formatTimeseriesLabel(label) {
+        if (timeseriesUnit === "hour") {
+            return label.slice(11, 16);
+        }
+        return label.slice(5);
+    }
+
+    function renderDashboardCharts() {
+        const theme = computedTheme();
+        const labels = dashboardSeries.map((item) => formatTimeseriesLabel(item.label));
+        const sentSeries = dashboardSeries.map((item) => item.count);
+        const failedSeries = failureSeries.map((item) => item.count);
+        const workerSeries = workerUsageSeries.map((item) => item.count);
+
+        if (window.dashboardCharts) {
+            window.dashboardCharts.forEach((chart) => chart.destroy());
+        }
+        window.dashboardCharts = [];
+
+        window.dashboardCharts.push(new Chart(document.getElementById("dashboardStatusPie"), {
+            type: "doughnut",
+            data: {
+                labels: ["Sucesso", "Falha"],
+                datasets: [{
+                    data: [statusMetrics.success_count, statusMetrics.failure_count],
+                    backgroundColor: ["#3274d9", "#ef843c"],
+                    borderColor: [theme.panel, theme.panel],
+                    borderWidth: 6,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "72%",
+                plugins: { legend: { display: false } },
+            },
+        }));
+
+        window.dashboardCharts.push(new Chart(document.getElementById("dashboardDeliveryPie"), {
+            type: "doughnut",
+            data: {
+                labels: ["E-mail", "Telegram"],
+                datasets: [{
+                    data: [deliveryMetrics.email_volume, deliveryMetrics.telegram_volume],
+                    backgroundColor: ["#3274d9", "#ef843c"],
+                    borderColor: [theme.panel, theme.panel],
+                    borderWidth: 6,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "72%",
+                plugins: { legend: { display: false } },
+            },
+        }));
+
+        window.dashboardCharts.push(new Chart(document.getElementById("dashboardTimeseries"), {
+            type: "line",
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: "Enviados",
+                        data: sentSeries,
+                        borderColor: "#3274d9",
+                        backgroundColor: "rgba(50, 116, 217, 0.12)",
+                        fill: true,
+                        tension: 0.32,
+                        borderWidth: 2,
+                        pointRadius: timeseriesUnit === "hour" ? 2 : 0,
+                    },
+                    {
+                        label: "Falhas",
+                        data: failedSeries,
+                        borderColor: "#ef843c",
+                        backgroundColor: "rgba(239, 132, 60, 0.08)",
+                        fill: true,
+                        tension: 0.28,
+                        borderWidth: 2,
+                        pointRadius: timeseriesUnit === "hour" ? 2 : 0,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: "index" },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: theme.text,
+                            usePointStyle: true,
+                            boxWidth: 8,
+                            padding: 16,
+                        },
+                    },
+                },
+                scales: {
+                    x: {
+                        ticks: { color: theme.muted },
+                        grid: { color: theme.grid },
+                    },
+                    y: {
+                        ticks: { color: theme.muted, precision: 0 },
+                        grid: { color: theme.grid },
+                        beginAtZero: true,
+                    },
+                },
+            },
+        }));
+
+        window.dashboardCharts.push(new Chart(document.getElementById("dashboardWorkersTimeseries"), {
+            type: "line",
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: "Execuções paralelas",
+                        data: workerSeries,
+                        borderColor: "#67d48c",
+                        backgroundColor: "rgba(103, 212, 140, 0.12)",
+                        fill: true,
+                        tension: 0.25,
+                        borderWidth: 2,
+                        pointRadius: timeseriesUnit === "hour" ? 2 : 0,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: "index" },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: theme.text,
+                            usePointStyle: true,
+                            boxWidth: 8,
+                            padding: 16,
+                        },
+                    },
+                },
+                scales: {
+                    x: {
+                        ticks: { color: theme.muted },
+                        grid: { color: theme.grid },
+                    },
+                    y: {
+                        ticks: { color: theme.muted, precision: 0 },
+                        grid: { color: theme.grid },
+                        beginAtZero: true,
+                    },
+                },
+            },
+        }));
+    }
+
+    renderDashboardCharts();
+</script>
+{% endblock %}
