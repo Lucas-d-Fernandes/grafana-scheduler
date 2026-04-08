@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Grafana Scheduler</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body data-theme="dark">
+    <main class="login-shell">
+        <section class="login-card">
+            <div class="login-copy">
+                <p class="app-topbar-kicker">Acesso Administrativo</p>
+                <h1>Grafana Scheduler</h1>
+                <p>Entre com a conta administrativa para acessar agendamentos, configuracoes e operacao do scheduler.</p>
+            </div>
+
+            {% if not auth_configured %}
+            <div class="feedback error">
+                Configure `ADMIN_USERNAME` e `ADMIN_PASSWORD_HASH` antes de iniciar a aplicacao em producao.
+            </div>
+            {% endif %}
+
+            {% if error_message %}
+            <div class="feedback error">{{ error_message }}</div>
+            {% endif %}
+
+            <form method="post" class="login-form">
+                <input type="hidden" name="next" value="{{ next_url }}">
+
+                <label>
+                    <span>Usuario</span>
+                    <input type="text" name="username" autocomplete="username" required>
+                </label>
+
+                <label>
+                    <span>Senha</span>
+                    <input type="password" name="password" autocomplete="current-password" required>
+                </label>
+
+                <button type="submit" {% if not auth_configured %}disabled{% endif %}>Entrar</button>
+            </form>
+        </section>
+    </main>
+</body>
+</html>
