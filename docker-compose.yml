@@ -1,0 +1,38 @@
+services:
+  web:
+    build: .
+    image: grafana-scheduler:latest
+    command: ["gunicorn", "--workers", "1", "--threads", "2", "--timeout", "600", "--graceful-timeout", "60", "-b", "0.0.0.0:5000", "app:app"]
+    ports:
+      - "5000:5000"
+    environment:
+      APP_DATA_DIR: /app/data
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:?set FLASK_SECRET_KEY}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:?set ADMIN_USERNAME}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-1}
+      TZ: ${TZ:-America/Sao_Paulo}
+      PYPPETEER_HOME: /app/data/pyppeteer
+    volumes:
+      - app_data:/app/data
+    shm_size: "1gb"
+    restart: unless-stopped
+
+  scheduler:
+    image: grafana-scheduler:latest
+    depends_on:
+      - web
+    command: ["python", "clock.py"]
+    environment:
+      APP_DATA_DIR: /app/data
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:?set FLASK_SECRET_KEY}
+      TZ: ${TZ:-America/Sao_Paulo}
+      PYPPETEER_HOME: /app/data/pyppeteer
+    volumes:
+      - app_data:/app/data
+    shm_size: "1gb"
+    restart: unless-stopped
+
+volumes:
+  app_data:
