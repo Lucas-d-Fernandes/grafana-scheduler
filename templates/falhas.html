@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}LOG de Erros{% endblock %}
+{% block topbar_title %}LOG de Erros{% endblock %}
+
+{% block content %}
+<section class="page-stack">
+    <header class="page-header-card">
+        <div class="section-heading">
+            <p class="section-kicker">Falhas Operacionais</p>
+            <h2 class="section-title">Ocorrências registradas com acesso ao detalhe visual do erro.</h2>
+            <p class="section-copy">Cada linha representa uma falha do scheduler. Ao expandir, a tela mostra apenas o erro e a imagem correspondente.</p>
+        </div>
+
+        <form method="get" class="filter-bar">
+            <button type="submit" name="days" value="1" class="filter-chip {% if days == 1 %}active{% endif %}">24h</button>
+            <button type="submit" name="days" value="7" class="filter-chip {% if days == 7 %}active{% endif %}">7d</button>
+            <button type="submit" name="days" value="30" class="filter-chip {% if days == 30 %}active{% endif %}">30d</button>
+        </form>
+    </header>
+
+    <section class="grafana-card table-panel">
+        <div class="panel-header">
+            <div>
+                <p class="section-kicker">Incidentes</p>
+                <h3 class="panel-title">Falhas recentes</h3>
+            </div>
+            <span class="panel-meta">{{ status_data.failure_rows|length }} ocorrência(s)</span>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Quando</th>
+                        <th>Agendamento</th>
+                        <th>Erro</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in status_data.failure_rows %}
+                    <tr>
+                        <td>{{ item.created_at }}</td>
+                        <td>{{ item.schedule_title }}</td>
+                        <td>{{ item.error_message }}</td>
+                        <td><a class="table-action" href="{{ url_for('failure_detail_page', execution_id=item.id) }}">Expandir</a></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4">Nenhuma falha registrada neste intervalo.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</section>
+{% endblock %}
