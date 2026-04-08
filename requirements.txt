@@ -1,0 +1,8 @@
+Flask
+cryptography
+requests
+pyppeteer
+beautifulsoup4
+gunicorn
+reportlab
+pypdf
