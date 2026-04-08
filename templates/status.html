@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Status{% endblock %}
+
+{% block content %}
+<section class="grid gap-8">
+    <header class="grid gap-4 border border-borderline p-6 sm:p-8">
+        <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40">Operacao</p>
+        <h2 class="font-sans text-4xl font-bold tracking-tighterx sm:text-5xl">Status</h2>
+        <p class="max-w-3xl text-sm leading-7 text-white/60">Historico dos ultimos 30 dias com envios, falhas e métricas agregadas para acompanhamento operacional.</p>
+    </header>
+
+    <section class="grid gap-6 border border-borderline p-6 sm:p-8">
+        <div class="flex flex-col gap-4 border-b border-borderline pb-6 sm:flex-row sm:items-end sm:justify-between">
+            <div class="grid gap-2">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40">API</p>
+                <h3 class="font-sans text-2xl font-bold tracking-tighterx">Token de API</h3>
+            </div>
+            <span class="status-badge {% if api_access_config.token_configured %}ready{% else %}warning{% endif %}">
+                {% if api_access_config.token_configured %}Configurado{% else %}Pendente{% endif %}
+            </span>
+        </div>
+
+        <form id="apiTokenForm" class="form-grid">
+            <label class="span-2">
+                <span>Token</span>
+                <input type="password" name="api_token" placeholder="{% if api_access_config.token_configured %}Ja configurado. Preencha apenas para trocar.{% else %}Informe o token de autenticacao{% endif %}">
+                <small class="helper-text">Use `Authorization: Bearer &lt;token&gt;` ou `X-API-Token` para consumir os endpoints.</small>
+            </label>
+            <div class="inline-actions span-2">
+                <button type="submit">Salvar Token de API</button>
+            </div>
+        </form>
+        <div id="api-token-feedback" class="feedback hidden"></div>
+        <div class="debug-box">
+            <strong class="font-sans text-base font-bold tracking-tighterx">Endpoints</strong>
+            <pre class="mt-4 whitespace-pre-wrap text-sm leading-7 text-white/65">/api/v1/metrics
+/api/v1/agendamentos/&lt;id&gt;/enviar</pre>
+        </div>
+    </section>
+
+    <div class="grid gap-px border border-borderline sm:grid-cols-3">
+        <article class="grid gap-2 bg-black p-5">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40">Ultimos Enviados</p>
+            <strong class="font-sans text-3xl font-bold tracking-tighterx">{{ status_data.recent_reports|length }}</strong>
+            <span class="text-sm leading-6 text-white/55">Execucoes com entrega total ou parcial.</span>
+        </article>
+        <article class="grid gap-2 bg-black p-5">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40">Ultimas Falhas</p>
+            <strong class="font-sans text-3xl font-bold tracking-tighterx">{{ status_data.recent_failures|length }}</strong>
+            <span class="text-sm leading-6 text-white/55">Falhas com detalhe expandido e imagem base64.</span>
+        </article>
+        <article class="grid gap-2 bg-black p-5">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40">Serie Diaria</p>
+            <strong class="font-sans text-3xl font-bold tracking-tighterx">{{ status_data.daily_counts|length }}</strong>
+            <span class="text-sm leading-6 text-white/55">Dias com ao menos um envio registrado.</span>
+        </article>
+    </div>
+
+    <section class="grid gap-6 border border-borderline p-6 sm:p-8">
+        <div class="grid gap-2">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40">Entregas</p>
+            <h3 class="font-sans text-2xl font-bold tracking-tighterx">Ultimos Relatorios Enviados</h3>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Quando</th>
+                        <th>Agendamento</th>
+                        <th>Cliente</th>
+                        <th>Status</th>
+                        <th>PDFs</th>
+                        <th>E-mail</th>
+                        <th>Telegram</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in status_data.recent_reports %}
+                    <tr>
+                        <td>{{ item.created_at }}</td>
+                        <td>{{ item.schedule_title }}</td>
+                        <td>{{ item.customer_name }}</td>
+                        <td><span class="status-badge {% if item.status == 'success' %}ready{% else %}warning{% endif %}">{{ item.status }}</span></td>
+                        <td>{{ item.report_count }}</td>
+                        <td>{{ item.sent_email_count }}</td>
+                        <td>{{ item.sent_telegram_count }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7">Nenhum relatorio enviado nos ultimos 30 dias.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="grid gap-px border border-borderline xl:grid-cols-3">
+        <article class="grid gap-5 bg-black p-6 sm:p-8">
+            <div class="grid gap-2">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40">Metricas</p>
+                <h3 class="font-sans text-xl font-bold tracking-tighterx">Diariamente</h3>
+            </div>
+            <div class="metric-list">
+                {% for item in status_data.daily_counts %}
+                <div class="metric-list-item"><span>{{ item.label }}</span><strong>{{ item.count }}</strong></div>
+                {% else %}
+                <p class="empty-state">Sem envios diarios no periodo.</p>
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="grid gap-5 bg-black p-6 sm:p-8">
+            <div class="grid gap-2">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40">Metricas</p>
+                <h3 class="font-sans text-xl font-bold tracking-tighterx">Semanalmente</h3>
+            </div>
+            <div class="metric-list">
+                {% for item in status_data.weekly_counts %}
+                <div class="metric-list-item"><span>Semana de {{ item.label }}</span><strong>{{ item.count }}</strong></div>
+                {% else %}
+                <p class="empty-state">Sem envios semanais no periodo.</p>
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="grid gap-5 bg-black p-6 sm:p-8">
+            <div class="grid gap-2">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40">Metricas</p>
+                <h3 class="font-sans text-xl font-bold tracking-tighterx">Mes a Mes</h3>
+            </div>
+            <div class="metric-list">
+                {% for item in status_data.monthly_counts %}
+                <div class="metric-list-item"><span>{{ item.label }}</span><strong>{{ item.count }}</strong></div>
+                {% else %}
+                <p class="empty-state">Sem envios mensais no periodo.</p>
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+
+    <section class="grid gap-6 border border-borderline p-6 sm:p-8">
+        <div class="grid gap-2">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40">Falhas</p>
+            <h3 class="font-sans text-2xl font-bold tracking-tighterx">Ultimas Falhas</h3>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Quando</th>
+                        <th>Agendamento</th>
+                        <th>Cliente</th>
+                        <th>Erro</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in status_data.recent_failures %}
+                    <tr>
+                        <td>{{ item.created_at }}</td>
+                        <td>{{ item.schedule_title }}</td>
+                        <td>{{ item.customer_name }}</td>
+                        <td>{{ item.error_message }}</td>
+                        <td><a class="text-link" href="{{ url_for('failure_detail_page', execution_id=item.id) }}">Expandir</a></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5">Nenhuma falha registrada nos ultimos 30 dias.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</section>
+{% endblock %}
