@@ -2,6 +2,24 @@
 
 Aplicação web para agendar geração de relatórios a partir de dashboards do Grafana, com envio automático por e-mail e Telegram, suporte opcional a análise por IA e uma API embutida para métricas operacionais e disparo remoto.
 
+## Interface
+
+| Dashboard | Agendamentos |
+|-----------|-------------|
+| ![Dashboard](capturas_ui_demo/01-dashboard.png) | ![Agendamentos](capturas_ui_demo/02-agendamentos-lista.png) |
+
+| Wizard de agendamento | Servidores Grafana |
+|----------------------|-------------------|
+| ![Wizard](capturas_ui_demo/03-agendamentos-wizard.png) | ![Servidores](capturas_ui_demo/04-servidores-grafana.png) |
+
+| Configuração de IA | API |
+|-------------------|-----|
+| ![IA](capturas_ui_demo/05-configuracao-ia.png) | ![API](capturas_ui_demo/06-api.png) |
+
+| Templates de relatório |
+|------------------------|
+| ![Templates](capturas_ui_demo/07-editar-relatorio.png) |
+
 ## O que a aplicação faz
 
 O Grafana Scheduler resolve um problema operacional simples e recorrente: transformar dashboards do Grafana em relatórios executivos ou técnicos, de forma programada, consistente e sem depender de execução manual.
