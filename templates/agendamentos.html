@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+
+{% block title %}Agendamentos{% endblock %}
+
+{% block content %}
+<section class="grid gap-8">
+    <header class="grid gap-6 border border-line bg-paper p-6 sm:p-8">
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div class="grid gap-3">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Tela 1</p>
+                <h2 class="font-sans text-4xl font-bold tracking-tighterx text-ink sm:text-5xl">Agendamentos</h2>
+                <p class="max-w-3xl text-sm leading-7 text-muted">Monte o fluxo em etapas curtas: origem, recorrência, entrega e formato final do relatório.</p>
+            </div>
+            <div class="view-toggle-group schedule-view-toggle" role="tablist" aria-label="Modo da tela de agendamentos">
+                <button type="button" class="view-toggle-button is-active" id="show-schedule-list">Agendamentos</button>
+                <button type="button" class="view-toggle-button" id="show-schedule-wizard">Novo Agendamento</button>
+            </div>
+        </div>
+
+        <div class="schedule-summary-grid">
+            <article class="metric-summary-card">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Agendamentos</p>
+                <strong>{{ schedules|length }}</strong>
+                <span class="text-sm leading-5 text-muted">Fluxos ativos</span>
+            </article>
+            <article class="metric-summary-card">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Servidores</p>
+                <strong>{{ grafana_servers|length }}</strong>
+                <span class="text-sm leading-5 text-muted">Origens prontas</span>
+            </article>
+            <article class="metric-summary-card">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Templates</p>
+                <strong>{{ report_templates.templates|length }}</strong>
+                <span class="text-sm leading-5 text-muted">PDFs disponíveis</span>
+            </article>
+        </div>
+    </header>
+
+    <div id="schedule-list-view" class="grid gap-8">
+        <section class="grid gap-6 border border-line bg-paper p-6 sm:p-8">
+            <div class="grid gap-2">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Operação</p>
+                <h3 class="font-sans text-2xl font-bold tracking-tighterx text-ink">Agendamentos salvos</h3>
+                <p class="max-w-3xl text-sm leading-7 text-muted">Consulte rapidamente o escopo, a entrega e o tipo de relatório de cada fluxo.</p>
+            </div>
+
+            <div class="table-wrap">
+                <table class="schedules-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nome interno</th>
+                            <th>Título</th>
+                            <th>Servidor</th>
+                            <th>Alvos</th>
+                            <th>Período</th>
+                            <th>Envio</th>
+                            <th>Relatório</th>
+                            <th>Template</th>
+                            <th>IA</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for schedule in schedules %}
+                        <tr>
+                            <td class="cell-id">{{ schedule.id }}</td>
+                            <td class="cell-title">{{ schedule.titulo }}</td>
+                            <td class="cell-subject">{{ schedule.report_subject or '-' }}</td>
+                            <td class="cell-server">{{ schedule.grafana_server_nome or '-' }}</td>
+                            <td class="cell-targets">
+                                <div class="target-stack">
+                                    {% for target in schedule.selected_targets %}
+                                    <div class="target-chip">
+                                        <span class="target-chip-type">{{ target.type | capitalize }}</span>
+                                        <span class="target-chip-title">{{ target.title }}</span>
+                                    </div>
+                                    {% else %}
+                                    <span class="table-empty">Nenhum alvo</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="cell-period">
+                                <div class="schedule-period">
+                                    <strong>{{ schedule.periodo | capitalize }}</strong>
+                                    <span>
+                                        {% if schedule.detalhe_periodo %}{{ schedule.detalhe_periodo }} · {% endif %}{{ schedule.horario }}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="cell-delivery">
+                                <div class="delivery-chip-list">
+                                    {% for method in schedule.delivery_methods %}
+                                    <div class="recipient-tag">{{ method }}</div>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="cell-report">{{ schedule.report_type | capitalize }}</td>
+                            <td class="cell-template">{{ schedule.report_template_nome or '-' }}</td>
+                            <td class="cell-ai">
+                                {% if schedule.use_ai %}
+                                <span class="recipient-tag recipient-tag-ai">{{ schedule.ai_provider }}</span>
+                                {% else %}
+                                <span class="table-empty">Sem IA</span>
+                                {% endif %}
+                            </td>
+                            <td class="cell-actions">
+                                <div class="table-actions">
+                                    <button type="button" class="table-action-button secondary-button" data-edit-schedule='{{ schedule | tojson | forceescape }}'>Editar</button>
+                                    <button type="button" class="table-action-button action-button-primary" data-run-schedule="{{ schedule.id }}">Enviar</button>
+                                    <button type="button" class="table-action-button danger-button" data-delete-schedule="{{ schedule.id }}">Excluir</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="11">Nenhum agendamento cadastrado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <div id="schedule-wizard-view" class="hidden">
+        <form id="scheduleWizardForm" class="wizard" data-telegram='{{ telegram_config | tojson }}' data-ai='{{ ai_config | tojson }}'>
+            <input type="hidden" name="schedule_id" id="schedule-id">
+
+            <div class="wizard-steps">
+                <div class="wizard-step active" data-step-indicator="1">1. Identidade</div>
+                <div class="wizard-step" data-step-indicator="2">2. Origem Grafana</div>
+                <div class="wizard-step" data-step-indicator="3">3. Periodicidade</div>
+                <div class="wizard-step" data-step-indicator="4">4. Entrega</div>
+                <div class="wizard-step" data-step-indicator="5">5. Relatório e IA</div>
+            </div>
+
+            <!-- Etapa 1 -->
+            <div class="wizard-panel grid gap-8 border border-line bg-paper p-6 sm:p-8" data-step="1" data-step-label="Identidade" data-step-copy="Defina o nome interno do fluxo e o título principal do envio.">
+                <div class="grid gap-2">
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Etapa 1</p>
+                    <h3 class="font-sans text-3xl font-bold tracking-tighterx text-ink">Identidade do fluxo</h3>
+                    <p class="max-w-3xl text-sm leading-7 text-muted">Comece com o mínimo necessário para identificar o relatório internamente e definir como ele será apresentado no envio.</p>
+                </div>
+
+                <div class="wizard-sections-grid">
+                    <section class="wizard-section wizard-section-full">
+                        <div class="grid gap-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Sessão A</p>
+                            <h4 class="font-sans text-xl font-bold tracking-tighterx text-ink">Informações básicas</h4>
+                        </div>
+                        <div class="form-grid">
+                            <label>
+                                <span>Nome do relatório</span>
+                                <input type="text" name="titulo" required>
+                                <small class="helper-text">Uso interno. Esse nome identifica o fluxo no scheduler e nas listagens.</small>
+                            </label>
+                            <label>
+                                <span>Título</span>
+                                <input type="text" name="report_subject" placeholder="Assunto do e-mail e título no Telegram">
+                                <small class="helper-text">Usado como assunto do e-mail e título da mensagem no Telegram.</small>
+                            </label>
+                            <label class="span-2">
+                                <span>Mensagem</span>
+                                <textarea name="report_intro" rows="4" placeholder="Mensagem de saudação, contato ou informações complementares."></textarea>
+                                <small class="helper-text">Esse texto entra como saudação no e-mail e complemento da mensagem no Telegram.</small>
+                            </label>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Etapa 2 -->
+            <div class="wizard-panel hidden grid gap-8 border border-line bg-paper p-6 sm:p-8" data-step="2" data-step-label="Origem Grafana" data-step-copy="Selecione o servidor e a dashboard que será enviada no relatório.">
+                <div class="grid gap-2">
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Etapa 2</p>
+                    <h3 class="font-sans text-3xl font-bold tracking-tighterx text-ink">Origem Grafana</h3>
+                    <p class="max-w-3xl text-sm leading-7 text-muted">Agora escolha de onde o relatório sai e qual dashboard entra no escopo.</p>
+                </div>
+
+                <div class="wizard-sections-grid">
+                    <section class="wizard-section">
+                        <div class="grid gap-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Sessão A</p>
+                            <h4 class="font-sans text-xl font-bold tracking-tighterx text-ink">Servidor Grafana</h4>
+                        </div>
+                        <div class="form-grid">
+                            <label class="span-2">
+                                <span>Servidor Grafana</span>
+                                <select name="grafana_server_id" id="grafana-server-select" required>
+                                    <option value="">Selecione um servidor</option>
+                                    {% for server in grafana_servers %}
+                                    <option value="{{ server.id }}">{{ server.nome }} | {{ server.base_url }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                        </div>
+                        <div class="inline-actions">
+                            <button type="button" id="load-grafana-catalog">Carregar catálogo</button>
+                            <a href="{{ url_for('grafana_servers_page') }}" class="text-link">Cadastrar novo servidor</a>
+                        </div>
+                    </section>
+
+                    <section class="wizard-section wizard-section-full">
+                        <div class="grid gap-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Sessão B</p>
+                            <h4 class="font-sans text-xl font-bold tracking-tighterx text-ink">Catálogo Grafana</h4>
+                            <p class="max-w-3xl text-sm leading-7 text-muted">Seleciona a dashboard para ser enviada no relatório.</p>
+                        </div>
+                        <div id="grafana-catalog-feedback" class="feedback hidden"></div>
+                        <div id="grafana-catalog" class="catalog-grid"></div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Etapa 3 -->
+            <div class="wizard-panel hidden grid gap-8 border border-line bg-paper p-6 sm:p-8" data-step="3" data-step-label="Periodicidade" data-step-copy="Escolha a recorrência e a janela de disparo do scheduler.">
+                <div class="grid gap-2">
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Etapa 3</p>
+                    <h3 class="font-sans text-3xl font-bold tracking-tighterx text-ink">Periodicidade</h3>
+                    <p class="max-w-3xl text-sm leading-7 text-muted">Defina quando o scheduler executa esse fluxo.</p>
+                </div>
+
+                <div class="wizard-sections-grid">
+                    <section class="wizard-section">
+                        <div class="grid gap-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Sessão A</p>
+                            <h4 class="font-sans text-xl font-bold tracking-tighterx text-ink">Recorrência</h4>
+                        </div>
+                        <div class="form-grid">
+                            <label>
+                                <span>Período</span>
+                                <select name="periodo" id="wizard-periodo" required>
+                                    <option value="diario">Diário</option>
+                                    <option value="semanal">Semanal</option>
+                                    <option value="mensal">Mensal</option>
+                                </select>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="wizard-section">
+                        <div class="grid gap-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Sessão B</p>
+                            <h4 class="font-sans text-xl font-bold tracking-tighterx text-ink">Janela de execução</h4>
+                        </div>
+
+                        <div id="wizard-periodo-diario" class="period-card">
+                            <label>
+                                <span>Horário</span>
+                                <input type="time" name="horario_diario" required>
+                            </label>
+                        </div>
+
+                        <div id="wizard-periodo-semanal" class="period-card hidden">
+                            <div class="form-grid">
+                                <label>
+                                    <span>Dia da semana</span>
+                                    <select name="dia_semana">
+                                        <option value="segunda">Segunda-feira</option>
+                                        <option value="terca">Terça-feira</option>
+                                        <option value="quarta">Quarta-feira</option>
+                                        <option value="quinta">Quinta-feira</option>
+                                        <option value="sexta">Sexta-feira</option>
+                                        <option value="sabado">Sábado</option>
+                                        <option value="domingo">Domingo</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    <span>Horário</span>
+                                    <input type="time" name="horario_semanal">
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="wizard-periodo-mensal" class="period-card hidden">
+                            <div class="form-grid">
+                                <label>
+                                    <span>Dia do mês</span>
+                                    <select name="dia_mes">
+                                        {% for i in range(1, 32) %}
+                                        <option value="{{ i }}">{{ i }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </label>
+                                <label>
+                                    <span>Horário</span>
+                                    <input type="time" name="horario_mensal">
+                                </label>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Etapa 4 -->
+            <div class="wizard-panel hidden grid gap-8 border border-line bg-paper p-6 sm:p-8" data-step="4" data-step-label="Entrega" data-step-copy="Escolha os canais ativos e informe somente os destinatários necessários.">
+                <div class="grid gap-2">
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Etapa 4</p>
+                    <h3 class="font-sans text-3xl font-bold tracking-tighterx text-ink">Entrega</h3>
+                    <p class="max-w-3xl text-sm leading-7 text-muted">Configure como o relatório será entregue antes de definir o formato final.</p>
+                </div>
+
+                <div class="wizard-sections-grid">
+                    <section class="wizard-section">
+                        <div class="grid gap-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Sessão A</p>
+                            <h4 class="font-sans text-xl font-bold tracking-tighterx text-ink">Canais ativos</h4>
+                        </div>
+                        <div class="delivery-options">
+                            <label class="choice-card">
+                                <input type="checkbox" name="delivery_method" value="email" checked>
+                                <span>E-mail</span>
+                            </label>
+                            <label class="choice-card">
+                                <input type="checkbox" name="delivery_method" value="telegram">
+                                <span>Telegram</span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="wizard-section">
+                        <div class="grid gap-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Sessão B</p>
+                            <h4 class="font-sans text-xl font-bold tracking-tighterx text-ink">Destinatários</h4>
+                        </div>
+                        <div id="wizard-email-section">
+                            <div class="recipient-header">
+                                <h4 class="font-sans text-lg font-bold tracking-tighterx text-ink">E-mail</h4>
+                                <button type="button" class="secondary-button" id="wizard-add-email">Adicionar</button>
+                            </div>
+                            <div id="wizard-email-list" class="recipient-list mt-3">
+                                <div class="email-input-group">
+                                    <label>
+                                        <span>E-mail</span>
+                                        <input type="email" name="emails[]" required>
+                                    </label>
+                                    <button type="button" class="danger-button remove-email-button">Remover</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="wizard-telegram-summary" class="hidden">
+                            <p class="empty-state">Os chats do Telegram são definidos em Configurações de Envio.</p>
+                            <p id="wizard-telegram-config-status" class="empty-state mt-3"></p>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Etapa 5 -->
+            <div class="wizard-panel hidden grid gap-8 border border-line bg-paper p-6 sm:p-8" data-step="5" data-step-label="Relatório e IA" data-step-copy="Finalize o formato do PDF, o template visual e a camada opcional de IA.">
+                <div class="grid gap-2">
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Etapa 5</p>
+                    <h3 class="font-sans text-3xl font-bold tracking-tighterx text-ink">Relatório e IA</h3>
+                    <p class="max-w-3xl text-sm leading-7 text-muted">Feche o fluxo com o formato do PDF, a mensagem de envio e, se fizer sentido, a camada de IA.</p>
+                </div>
+
+                <div class="wizard-sections-grid">
+                    <section class="wizard-section">
+                        <div class="grid gap-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Sessão A</p>
+                            <h4 class="font-sans text-xl font-bold tracking-tighterx text-ink">Formato do relatório</h4>
+                        </div>
+                        <div class="form-grid">
+                            <label>
+                                <span>Tipo de relatório</span>
+                                <select name="report_type" required>
+                                    <option value="resumido">Resumido</option>
+                                    <option value="detalhado">Detalhado</option>
+                                </select>
+                                <small class="helper-text">Detalhado lista os painéis individualmente e funciona melhor com a IA ativa.</small>
+                            </label>
+
+                            <label>
+                                <span>Template de relatório</span>
+                                <select name="report_template_id" id="wizard-report-template">
+                                    <option value="">Template padrao do sistema</option>
+                                    {% for template in report_templates.templates %}
+                                    <option value="{{ template.id }}">{{ template.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="helper-text">Logo e identidade visual ficam em Editar Relatório.</small>
+                            </label>
+
+                            <label class="span-2">
+                                <span>Rodapé / Observações</span>
+                                <textarea name="report_footer" rows="4" placeholder="Observações finais, contexto operacional ou instruções para o time."></textarea>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="wizard-section">
+                        <div class="grid gap-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Sessão B</p>
+                            <h4 class="font-sans text-xl font-bold tracking-tighterx text-ink">Análises de IA</h4>
+                        </div>
+                        <div class="form-grid">
+                            <label class="toggle-row align-end">
+                                <input type="checkbox" name="use_ai" id="wizard-use-ai">
+                                <span>Com Insights de IA</span>
+                            </label>
+
+                            <label id="wizard-ai-provider-wrapper" class="hidden">
+                                <span>Provedor de IA</span>
+                                <select name="ai_provider" id="wizard-ai-provider">
+                                    <option value="">Selecione um provedor</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="azure">Azure AI Foundry</option>
+                                    <option value="claude">Claude</option>
+                                </select>
+                            </label>
+
+                            <label id="wizard-ai-prompt-wrapper" class="hidden">
+                                <span>Prompt de IA</span>
+                                <select name="ai_prompt_id" id="wizard-ai-prompt">
+                                    <option value="">Selecione um prompt</option>
+                                    {% for prompt in ai_prompts.prompts %}
+                                    <option value="{{ prompt.id }}">{{ prompt.titulo }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+
+                            <label class="span-2 hidden" id="wizard-ai-instruction-wrapper">
+                                <span>Instruções adicionais para a IA</span>
+                                <textarea name="report_ai_instruction" rows="4" placeholder="Ex.: priorize incidentes, gargalos e tendências anormais."></textarea>
+                            </label>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <input type="hidden" name="selected_targets_json" id="selected-targets-json">
+            <input type="hidden" name="delivery_methods_json" id="delivery-methods-json">
+
+            <div class="wizard-actions wizard-actions-sticky">
+                <div class="wizard-actions-copy">
+                    <strong id="wizard-mode-title" class="font-sans text-base font-bold tracking-tighterx text-ink">Novo Agendamento</strong>
+                    <span id="wizard-mode-copy" class="text-sm leading-6">Preencha o fluxo completo e salve quando estiver pronto.</span>
+                </div>
+                <button type="button" class="secondary-button" id="wizard-back">Voltar</button>
+                <button type="button" id="wizard-next">Avançar</button>
+                <button type="button" class="secondary-button hidden" id="wizard-cancel-edit">Cancelar edição</button>
+                <button type="submit" id="wizard-submit" class="hidden">Salvar Agendamento</button>
+            </div>
+        </form>
+
+        <div id="schedule-feedback" class="feedback hidden"></div>
+    </div>
+</section>
+{% endblock %}
