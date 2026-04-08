@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Servidores Grafana{% endblock %}
+
+{% block content %}
+<section class="page-stack">
+    <header class="page-header-card">
+        <div class="section-heading">
+            <p class="section-kicker">Grafana</p>
+            <h2 class="section-title">Servidores Grafana</h2>
+            <p class="section-copy">Cadastre as origens usadas no catálogo de dashboards e na geração dos relatórios.</p>
+        </div>
+    </header>
+
+    <div class="server-settings-layout">
+        <section class="section-panel">
+            <div class="section-heading">
+                <p class="section-kicker">Cadastro</p>
+                <h3 id="grafana-server-form-title" class="section-title">Nova origem Grafana</h3>
+                <p id="grafana-server-form-copy" class="section-copy">Informe os dados da origem que será usada no wizard e no scheduler.</p>
+            </div>
+
+            <form id="grafanaServerForm" class="server-form-stack top-gap">
+                <input type="hidden" name="server_id" id="grafana-server-id">
+
+                <label>
+                    <span>Nome do servidor</span>
+                    <input type="text" name="nome" required>
+                </label>
+
+                <label>
+                    <span>URL do Grafana</span>
+                    <input type="url" name="base_url" required placeholder="https://grafana.seudominio.com">
+                </label>
+
+                <label>
+                    <span>Usuário</span>
+                    <input type="text" name="username" required>
+                </label>
+
+                <label>
+                    <span>Senha</span>
+                    <input type="password" name="password">
+                </label>
+                <p class="helper-text">A senha é obrigatória para a captura dos relatórios. Ao editar, deixe em branco para manter a atual.</p>
+
+                <label>
+                    <span>Token da conta de serviço</span>
+                    <input type="password" name="service_account_token">
+                </label>
+                <p class="helper-text">Opcional. Ao editar, deixe em branco para manter o token atual.</p>
+
+                <div class="inline-actions server-form-actions">
+                    <button type="submit" id="grafana-server-submit">Salvar servidor</button>
+                    <button type="button" class="secondary-button hidden" id="grafana-server-cancel">Cancelar</button>
+                </div>
+            </form>
+
+            <div id="grafana-server-feedback" class="feedback hidden top-gap"></div>
+        </section>
+
+        <section class="section-panel">
+            <div class="section-heading">
+                <p class="section-kicker">Inventário</p>
+                <h3 class="section-title">Servidores salvos</h3>
+                <p class="section-copy">Revise rapidamente as origens disponíveis.</p>
+            </div>
+
+            <div class="server-list top-gap">
+                {% for server in grafana_servers %}
+                <article class="server-list-item">
+                    <div class="server-list-copy">
+                        <strong>{{ server.nome }}</strong>
+                        <span>{{ server.base_url }}</span>
+                    </div>
+                    <div class="compact-actions">
+                        <button
+                            type="button"
+                            class="secondary-button"
+                            data-edit-server='{{ {
+                                "id": server.id,
+                                "nome": server.nome,
+                                "base_url": server.base_url,
+                                "username": server.username
+                            } | tojson | forceescape }}'
+                        >Editar</button>
+                        <button type="button" class="danger-button" data-delete-server="{{ server.id }}">Excluir</button>
+                    </div>
+                </article>
+                {% else %}
+                <p class="empty-state">Nenhum servidor Grafana cadastrado.</p>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</section>
+{% endblock %}
