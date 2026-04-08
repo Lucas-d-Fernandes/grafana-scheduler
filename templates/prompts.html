@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Prompts{% endblock %}
+
+{% block content %}
+<section class="page-stack">
+    <header class="hero-panel">
+        <p class="hero-kicker">Prompts</p>
+        <h2 class="hero-title">Biblioteca de instrucoes para as analises de IA.</h2>
+        <p class="hero-copy">
+            Crie prompts reutilizaveis para orientar a interpretacao dos paineis, das dashboards e do resumo final. O scheduler combina esse texto com metadados resumidos e a imagem correspondente em cada requisicao.
+        </p>
+    </header>
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section class="section-panel">
+            <div class="section-heading">
+                <p class="section-kicker">Cadastro</p>
+                <h3 class="section-title">Novo prompt</h3>
+                <p class="section-copy">Use um titulo curto para identificar o objetivo do prompt e escreva o texto principal que sera combinado com os metadados da dashboard e do painel.</p>
+            </div>
+
+            <form id="aiPromptForm" class="form-grid mt-6" data-prompts='{{ ai_prompts.prompts | tojson }}'>
+                <input type="hidden" id="ai-prompt-id">
+
+                <label class="span-2">
+                    <span>Titulo do prompt</span>
+                    <input type="text" id="ai-prompt-title" placeholder="Ex.: Analise executiva de incidentes" required>
+                </label>
+
+                <label class="span-2">
+                    <span>Prompt</span>
+                    <textarea id="ai-prompt-text" rows="12" placeholder="Explique como a IA deve interpretar o painel, quais sinais priorizar e o tom esperado da analise." required></textarea>
+                </label>
+
+                <div class="inline-actions span-2">
+                    <button type="submit">Salvar prompt</button>
+                    <button type="button" class="secondary-button" id="ai-prompt-clear">Limpar formulario</button>
+                </div>
+            </form>
+
+            <div id="ai-prompt-feedback" class="feedback hidden mt-6"></div>
+        </section>
+
+        <section class="section-panel">
+            <div class="section-heading">
+                <p class="section-kicker">Biblioteca</p>
+                <h3 class="section-title">Prompts salvos</h3>
+                <p class="section-copy">Edite, remova e reutilize qualquer prompt nos agendamentos com IA ativa.</p>
+            </div>
+
+            <div id="ai-prompt-list" class="template-list mt-6" data-prompts='{{ ai_prompts.prompts | tojson }}'>
+                {% if ai_prompts.prompts %}
+                    {% for prompt in ai_prompts.prompts %}
+                    <article class="template-card">
+                        <div class="template-card-header">
+                            <div class="grid gap-2">
+                                <strong class="font-sans text-base font-bold tracking-tighterx text-ink">{{ prompt.titulo }}</strong>
+                                <p class="soft-copy text-sm leading-7">{{ prompt.prompt_text[:180] }}{% if prompt.prompt_text|length > 180 %}...{% endif %}</p>
+                            </div>
+                            <div class="inline-actions">
+                                <button type="button" class="secondary-button" data-edit-ai-prompt="{{ prompt.id }}">Editar</button>
+                                <button type="button" class="danger-button" data-delete-ai-prompt="{{ prompt.id }}">Excluir</button>
+                            </div>
+                        </div>
+                    </article>
+                    {% endfor %}
+                {% else %}
+                    <p class="empty-state">Nenhum prompt cadastrado.</p>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+</section>
+{% endblock %}
